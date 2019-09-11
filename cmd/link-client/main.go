@@ -83,6 +83,38 @@ func main() {
 				return nil
 			},
 		}, {
+			Name:      "update",
+			ArgsUsage: "ID",
+			Flags: []cli.Flag{
+				cli.StringFlag{Name: "check-type", Value: string(api.TCPHealthCheck), Usage: "Type of healthcheck"},
+				cli.StringFlag{Name: "check-host", Value: "", Usage: "Host for healthcheck"},
+				cli.IntFlag{Name: "check-port", Value: 0, Usage: "Port for healthcheck"},
+			},
+			Action: func(c *cli.Context) error {
+				if c.NArg() != 1 {
+					cli.ShowCommandHelp(c, c.Command.Name)
+					return nil
+				}
+				if c.String("check-host") == "" || c.Int("check-port") == 0 {
+					cli.ShowCommandHelp(c, c.Command.Name)
+					return nil
+				}
+				opts := api.UpdateIPOpts{
+					Checks: []models.Healthcheck{{
+						Type: models.HealthcheckType(c.String("check-type")),
+						Host: c.String("check-host"),
+						Port: c.Int("check-port"),
+					}},
+				}
+				client := getClientFromCtx(c)
+				ip, err := client.UpdateIP(context.Background(), c.Args().First(), opts)
+				if err != nil {
+					return err
+				}
+				formatIP(ip)
+				return nil
+			},
+		}, {
 			Name:      "try-get-lock",
 			ArgsUsage: "ID",
 			Action: func(c *cli.Context) error {

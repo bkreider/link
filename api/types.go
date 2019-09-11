@@ -8,7 +8,15 @@ const (
 	Failing   = "FAILING"
 )
 
+const (
+	TCPHealthCheck = models.TCPHealthCheck
+)
+
 type IP struct {
 	models.IP
 	Status string `json:"status,omitempty"`
+}
+
+type UpdateIPOpts struct {
+	Checks []models.Healthcheck
 }

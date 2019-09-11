@@ -19,6 +19,7 @@ import (
 type Manager interface {
 	Start(context.Context)
 	Stop(ctx context.Context, stopper func(context.Context) error)
+	UpdateChecks(ctx context.Context, checks []models.Healthcheck)
 	CancelStopping(context.Context) bool
 	Status() string
 	IP() models.IP
@@ -34,6 +35,7 @@ type manager struct {
 	messageMutex     sync.Mutex
 	closed           bool
 	locker           locker.Locker
+	checkerM         *sync.Mutex
 	checker          healthcheck.Checker
 	config           config.Config
 	eventChan        chan string
@@ -56,6 +58,7 @@ func NewManager(ctx context.Context, config config.Config, ip models.IP, client 
 		networkInterface: i,
 		ip:               ip,
 		locker:           locker.NewEtcdLocker(config, client, storage, ip),
+		checkerM:         &sync.Mutex{},
 		checker:          healthcheck.FromChecks(config, ip.Checks),
 		config:           config,
 		eventChan:        make(chan string),
@@ -90,6 +93,12 @@ func (m *manager) Start(ctx context.Context) {
 		}
 	}
 	log.Info("Manager stopped")
+}
+
+func (m *manager) UpdateChecks(ctx context.Context, checks []models.Healthcheck) {
+	m.checkerM.Lock()
+	defer m.checkerM.Unlock()
+	m.checker = healthcheck.FromChecks(m.config, checks)
 }
 
 func (u *manager) Status() string {

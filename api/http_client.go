@@ -67,6 +67,8 @@ func (c HTTPClient) Version(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	defer resp.Body.Close()
+
 	if resp.StatusCode != http.StatusOK {
 		return "", getErrorFromBody(resp.StatusCode, resp.Body)
 	}
@@ -89,6 +91,7 @@ func (c HTTPClient) ListIPs(ctx context.Context) ([]IP, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, getErrorFromBody(resp.StatusCode, resp.Body)
@@ -114,6 +117,7 @@ func (c HTTPClient) GetIP(ctx context.Context, id string) (IP, error) {
 	if err != nil {
 		return IP{}, err
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		return IP{}, getErrorFromBody(resp.StatusCode, resp.Body)
@@ -166,6 +170,7 @@ func (c HTTPClient) AddIP(ctx context.Context, ip string, checks ...models.Healt
 	if err != nil {
 		return IP{}, err
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated {
 		return IP{}, getErrorFromBody(resp.StatusCode, resp.Body)
@@ -173,6 +178,38 @@ func (c HTTPClient) AddIP(ctx context.Context, ip string, checks ...models.Healt
 
 	var res IP
 
+	err = json.NewDecoder(resp.Body).Decode(&res)
+	if err != nil {
+		return IP{}, err
+	}
+
+	return res, nil
+}
+
+// UpdateIP allows a client to update healthcheck of an VIP
+func (c HTTPClient) UpdateIP(ctx context.Context, id string, opts UpdateIPOpts) (IP, error) {
+	buffer := new(bytes.Buffer)
+	err := json.NewEncoder(buffer).Encode(opts)
+	if err != nil {
+		return IP{}, err
+	}
+
+	req, err := c.getRequest(http.MethodPatch, fmt.Sprintf("/ips/%s", id), buffer)
+	if err != nil {
+		return IP{}, err
+	}
+
+	resp, err := c.getClient().Do(req)
+	if err != nil {
+		return IP{}, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return IP{}, getErrorFromBody(resp.StatusCode, resp.Body)
+	}
+
+	var res IP
 	err = json.NewDecoder(resp.Body).Decode(&res)
 	if err != nil {
 		return IP{}, err
@@ -191,6 +228,7 @@ func (c HTTPClient) RemoveIP(ctx context.Context, id string) error {
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusNoContent {
 		return getErrorFromBody(resp.StatusCode, resp.Body)

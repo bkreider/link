@@ -109,6 +109,32 @@ func (c ipController) Create(w http.ResponseWriter, r *http.Request, p map[strin
 	return nil
 }
 
+func (c ipController) Update(w http.ResponseWriter, r *http.Request, params map[string]string) error {
+	ctx := r.Context()
+	log := logger.Get(ctx)
+	w.Header().Set("Content-Type", "application/json")
+
+	var opts api.UpdateIPOpts
+	err := json.NewDecoder(r.Body).Decode(&opts)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return errors.Wrapf(err, "invalid JSON")
+	}
+
+	newIP, err := c.scheduler.UpdateChecks(ctx, params["id"], opts.Checks)
+	if err != nil {
+		return errors.Wrapf(err, "fail to udpate checks")
+	}
+
+	w.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(w).Encode(newIP)
+	if err != nil {
+		log.WithError(err).Error("fail to encode IP")
+	}
+
+	return nil
+}
+
 func (c ipController) Destroy(w http.ResponseWriter, r *http.Request, params map[string]string) error {
 	ctx := r.Context()
 	id := params["id"]

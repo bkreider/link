@@ -17,6 +17,7 @@ import (
 type Scheduler interface {
 	Start(context.Context, models.IP) (models.IP, error)
 	Stop(ctx context.Context, id string) error
+	UpdateChecks(ctx context.Context, id string, checks []models.Healthcheck) (*api.IP, error)
 	Status(string) string
 	ConfiguredIPs(ctx context.Context) []api.IP
 	GetIP(ctx context.Context, id string) *api.IP
@@ -151,6 +152,30 @@ func (s *IPScheduler) GetIP(ctx context.Context, id string) *api.IP {
 		IP:     manager.IP(),
 		Status: manager.Status(),
 	}
+}
+
+func (s *IPScheduler) UpdateChecks(ctx context.Context, id string, checks []models.Healthcheck) (*api.IP, error) {
+	s.mapMutex.RLock()
+	defer s.mapMutex.RUnlock()
+
+	manager, ok := s.ipManagers[id]
+	if !ok {
+		return nil, errors.New("no such IP")
+	}
+	ip := manager.IP()
+	ip.Checks = checks
+
+	err := s.storage.UpdateIP(ctx, ip)
+	if err != nil {
+		return nil, errors.Wrapf(err, "fail to update stored IP")
+	}
+
+	manager.UpdateChecks(ctx, checks)
+
+	return &api.IP{
+		IP:     ip,
+		Status: manager.Status(),
+	}, nil
 }
 
 func (s *IPScheduler) TryGetLock(ctx context.Context, id string) bool {
